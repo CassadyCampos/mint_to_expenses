@@ -57,6 +57,7 @@ for input_filename in input_files:
             "Mortgage & Rent",
             "Parking",
             "TFSA Investment",
+            "Subscriptions"
             "Mobile Phone",
             "Books",
             "Video Games",
@@ -80,14 +81,13 @@ for input_filename in input_files:
     # Auto-fit column widths
     for column_cells in ws.columns:
         max_length = max(len(str(cell.value)) for cell in column_cells)
-        adjusted_width = min((max_length + 2) * 1.2, 50)  # Adding some padding and scaling
+        adjusted_width = min((max_length + 2) * 1.2, 35)  # Adding some padding and scaling
         column_letter = get_column_letter(column_cells[0].column)
 
         ws.column_dimensions[column_letter].width = adjusted_width
 
     # Add three rows of space at the bottom
     for _ in range(3):
-        # rowIndex = rowIndex + 1
         ws.append([])
 
     # Add "Total" row

@@ -1,7 +1,7 @@
 # mint_to_expenses
 
 ### How to Run
-1. Place exported Wealthsimple CSV files into the directory /transactions
+1. Place exported Mint CSV files into the directory /transactions
 
 2. (Optional) Modify any categories you'd like to filter out and not include in the end results
 within mint_to_expenses_transform.py. 

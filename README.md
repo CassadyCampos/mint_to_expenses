@@ -9,7 +9,7 @@ within mint_to_expenses_transform.py.
 3. When your ready run the script command
 'python mint_to_expenses_transform.py'
 
-When entered you should recieve output log responses of the converted files
+- When entered you should recieve output log responses of the converted files
 
 4. Pretty much done! Look inside the directory /transformed to view the resulting spreadsheet
 

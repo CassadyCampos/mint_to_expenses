@@ -6,6 +6,10 @@
 2. (Optional) Modify any categories you'd like to filter out and not include in the end results
 within mint_to_expenses_transform.py. 
 
+2. 1. If running on a fresh machine, you may need to install python and make sure you have these packages installed
+    pip install pandas
+    pip install openpyxl
+
 3. When you're ready run the script command
 'python mint_to_expenses_transform.py'
 

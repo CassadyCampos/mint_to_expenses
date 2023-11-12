@@ -21,19 +21,11 @@ def perform_transformations(input_filename, fileContents):
 
     df = pd.read_csv(stringIO)
 
-    print(f"More contents: {df}")
+    # print(f"More contents: {df}")
 
     # Create a new Excel workbook and select the active sheet
     wb = Workbook()
     ws = wb.active
-
-    # # Define a named style for currency formatting
-    # currency_style = NamedStyle(name='currency', number_format='$#,##0.00')
-
-    # # Apply the currency style to columns E, F, G, and H
-    # for col_letter in ['E', 'F', 'G', 'H']:
-    #     for cell in ws[col_letter]:
-    #         cell.style = currency_style
 
     # Write the transformed headers to the Excel sheet
     headers = ["", "Item", "Date", "Paid By", "Amount (CAD)", "CherryOwesCass", "CassOwesCherry", "Split 50/50", "Category"]
@@ -127,22 +119,22 @@ s3 = boto3.client('s3')
 input_bucket_name = 'mint-transactions'
 output_bucket_name = 'mint-transformed'
 # List all objects in the input S3 bucket
-response = s3.list_objects_v2(Bucket=input_bucket_name)
+prefix = 'transactions/'
+
+response = s3.list_objects_v2(Bucket=input_bucket_name, Prefix=prefix)
 for obj in response.get('Contents', []):
     object_key = obj['Key']
     # Download CSV file from input bucket
-    response = s3.get_object(Bucket=input_bucket_name, Key=object_key)
+    # Extract the file name using os.path.basename
+    file_name = os.path.basename(object_key)
+    if file_name.lower().endswith('.csv'):
+        response = s3.get_object(Bucket=input_bucket_name, Key=object_key)
+        print(f"Processing file: {file_name}") 
 
-    csv_content = response['Body'].read().decode('utf-8')
-    # Perform data transformations (e.g., using pandas)
-    # Replace this with your transformation code
-    # print(f"Found {object_key}")
+        csv_content = response['Body'].read().decode('utf-8')
+        transformed_data = perform_transformations(file_name, csv_content)
 
-    transformed_data = perform_transformations(object_key, csv_content)
-
-    # print(f"Last data is {transformed_data}")
-    # transformed_data = perform_transformations(csv_content)
-    # # Upload the transformed data to the output bucket
-    
-    s3.upload_file(transformed_data, output_bucket_name, 'transformed.xlsx')
-    # print(f"Saved to S3")
+        
+        newFileName = file_name.replace(".csv", "_transformed.xlsx")
+        s3.upload_file(transformed_data, input_bucket_name, f'transformed/{newFileName}')
+        print(f"Saved to S3")

@@ -1,2 +1,4 @@
 transactions/*
 transformed/*
+/Lib/*
+docker-compose.yml

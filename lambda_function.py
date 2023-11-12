@@ -1,27 +1,27 @@
 import os
 import pandas as pd
+import boto3
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.styles import NamedStyle
 from openpyxl.utils import get_column_letter
+from io import StringIO
 
 # Input and output directories
 input_dir = "transactions"
 output_dir = "transformed"
 
-# Create the output directory if it doesn't exist
-os.makedirs(output_dir, exist_ok=True)
-
-# List CSV files in the input directory
-input_files = [file for file in os.listdir(input_dir) if file.endswith(".csv")]
-
-# Process each input file
-for input_filename in input_files:
+def perform_transformations(input_filename, fileContents):
     input_filepath = os.path.join(input_dir, input_filename)
     output_filepath = os.path.join(output_dir, input_filename.replace(".csv", "_transformed.xlsx"))
 
     # Read the CSV file
-    df = pd.read_csv(input_filepath)
+    # df = pd.read_csv(fileContents)
+    stringIO = StringIO(fileContents)
+
+    df = pd.read_csv(stringIO)
+
+    print(f"More contents: {df}")
 
     # Create a new Excel workbook and select the active sheet
     wb = Workbook()
@@ -102,4 +102,47 @@ for input_filename in input_files:
     # Save the Excel workbook
     wb.save(output_filepath)
 
-    print(f"Data from {input_filename} transformed and saved to {output_filepath}")
+    print(f"Completed {input_filename}. Transformed and saved to {output_filepath}")
+
+    return output_filepath
+    # Upload the local file to your S3 bucket
+
+
+
+
+# Access AWS credentials from environment variables
+aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
+aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+aws_region = os.environ.get('AWS_DEFAULT_REGION')
+
+s3 = boto3.client(
+    's3',
+    aws_access_key_id=aws_access_key_id,
+    aws_secret_access_key=aws_secret_access_key,
+    region_name='ca-central-1'
+)
+
+s3 = boto3.client('s3')
+# Define your input and output bucket names
+input_bucket_name = 'mint-transactions'
+output_bucket_name = 'mint-transformed'
+# List all objects in the input S3 bucket
+response = s3.list_objects_v2(Bucket=input_bucket_name)
+for obj in response.get('Contents', []):
+    object_key = obj['Key']
+    # Download CSV file from input bucket
+    response = s3.get_object(Bucket=input_bucket_name, Key=object_key)
+
+    csv_content = response['Body'].read().decode('utf-8')
+    # Perform data transformations (e.g., using pandas)
+    # Replace this with your transformation code
+    # print(f"Found {object_key}")
+
+    transformed_data = perform_transformations(object_key, csv_content)
+
+    # print(f"Last data is {transformed_data}")
+    # transformed_data = perform_transformations(csv_content)
+    # # Upload the transformed data to the output bucket
+    
+    s3.upload_file(transformed_data, output_bucket_name, 'transformed.xlsx')
+    # print(f"Saved to S3")

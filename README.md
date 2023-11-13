@@ -1,5 +1,15 @@
 # mint_to_expenses
 
+This app was migrated to AWS so I can run it on a monthly schedule instead of manually. 
+
+
+
+
+
+
+
+
+# Cant do this anymore
 ### How to Run
 1. Place exported Mint CSV files into the directory /transactions
 

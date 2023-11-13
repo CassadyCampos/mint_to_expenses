@@ -1,140 +1,155 @@
 import os
 import pandas as pd
 import boto3
+import json
+
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.styles import NamedStyle
 from openpyxl.utils import get_column_letter
 from io import StringIO
 
-# Input and output directories
-input_dir = "transactions"
-output_dir = "transformed"
 
 def perform_transformations(input_filename, fileContents):
-    input_filepath = os.path.join(input_dir, input_filename)
-    output_filepath = os.path.join(output_dir, input_filename.replace(".csv", "_transformed.xlsx"))
+    # Input and output directories
+    input_dir = "transactions"
+    output_dir = "transformed"
+    try:
+        input_filepath = os.path.join(input_dir, input_filename)
+        output_filepath = '/tmp/' + input_filename.replace(".csv", "_transformed.xlsx")
 
-    # Read the CSV file
-    # df = pd.read_csv(fileContents)
-    stringIO = StringIO(fileContents)
+        # Read the CSV file
+        stringIO = StringIO(fileContents)
+        df = pd.read_csv(stringIO)
 
-    df = pd.read_csv(stringIO)
+        # Create a new Excel workbook and select the active sheet
+        wb = Workbook()
+        ws = wb.active
 
-    # print(f"More contents: {df}")
+        # Write the transformed headers to the Excel sheet
+        headers = ["", "Item", "Date", "Amount (CAD)", "Decided Split", "Category"]
+        ws.append(headers)
 
-    # Create a new Excel workbook and select the active sheet
-    wb = Workbook()
-    ws = wb.active
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
 
-    # Write the transformed headers to the Excel sheet
-    headers = ["", "Item", "Date", "Paid By", "Amount (CAD)", "CherryOwesCass", "CassOwesCherry", "Split 50/50", "Category"]
-    ws.append(headers)
+        # Perform transformations and write to Excel sheet
+        rowIndex = 2
+        for index, row in df.iterrows():
+            if row["Category"] in [
+                "Transfer",
+                "Deposit",
+                "Credit Card Payment",
+                "Hide from Budgets & Trends",
+                "Bank Fee",
+                "Income",
+                "Investments",
+                "Interest Income",
+                "Mortgage & Rent",
+                "Parking",
+                "TFSA Investment",
+                "Subscriptions"
+                "Mobile Phone",
+                "Books",
+                "Video Games",
+                "Canada Student Loan",
+                "Alberta Student Loan"]:
+                continue
 
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
+            item = row["Description"]
+            date = pd.to_datetime(row["Date"]).date()
+            amount_cad = float(row["Amount"])
+            decided_split = f"=D{rowIndex}/2"  # Referencing Amount (CAD) cell
+            category = row["Category"]
+            rowIndex = rowIndex + 1
+            ws.append(["",item, date, amount_cad, decided_split, category])
 
+        # Auto-fit column widths
+        for column_cells in ws.columns:
+            max_length = max(len(str(cell.value)) for cell in column_cells)
+            adjusted_width = min((max_length + 2) * 1.2, 35)  # Adding some padding and scaling
+            column_letter = get_column_letter(column_cells[0].column)
+            ws.column_dimensions[column_letter].width = adjusted_width
 
-    # Perform transformations and write to Excel sheet
-    rowIndex = 2
-    for index, row in df.iterrows():
-        if row["Category"] in [
-            "Transfer",
-            "Deposit",
-            "Credit Card Payment",
-            "Hide from Budgets & Trends",
-            "Bank Fee",
-            "Income",
-            "Interest Income",
-            "Mortgage & Rent",
-            "Parking",
-            "TFSA Investment",
-            "Subscriptions"
-            "Mobile Phone",
-            "Books",
-            "Video Games",
-            "Canada Student Loan",
-            "Alberta Student Loan"]:
-            continue
+        # Add three rows of space at the bottom
+        for _ in range(3):
+            ws.append([])
 
-
-        item = row["Description"]
-        date = pd.to_datetime(row["Date"]).date()
-        paid_by = "Cassady"
-        amount_cad = float(row["Amount"])
-        cherry_owes_cass = f"=E{rowIndex}/2"  # Referencing Amount (CAD) cell
-        cass_owes_cherry = ""
-        split_50_50 = f"=E{rowIndex}/2"  # Referencing Amount (CAD) cell
-        category = row["Category"]
-
-        rowIndex = rowIndex + 1
-        ws.append(["",item, date, paid_by, amount_cad, cherry_owes_cass, cass_owes_cherry, split_50_50, category])
-
-    # Auto-fit column widths
-    for column_cells in ws.columns:
-        max_length = max(len(str(cell.value)) for cell in column_cells)
-        adjusted_width = min((max_length + 2) * 1.2, 35)  # Adding some padding and scaling
-        column_letter = get_column_letter(column_cells[0].column)
-
-        ws.column_dimensions[column_letter].width = adjusted_width
-
-    # Add three rows of space at the bottom
-    for _ in range(3):
+        # Add "Total" row
+        ws.append(["Total", None, None, "=SUM(D2:D" + str(rowIndex) + ")", "=SUM(E2:E" + str(rowIndex) + ")"])
+        # Add blank row
         ws.append([])
+        # Save the Excel workbook
+        wb.save(output_filepath)
 
-    # Add "Total" row
-    ws.append(["Total", None, None, None, "=SUM(E2:E" + str(rowIndex) + ")", "=SUM(F2:F" + str(rowIndex) + ")", None, "=SUM(H2:H" + str(rowIndex)  +")"])
+        print(f"Completed processing {input_filename}. Saved {output_filepath} to storage")
 
-    # Add blank row
-    ws.append([])
+        return output_filepath
+    except Exception as e:
+        print(f"An error occurred during transformations: {str(e)}")
+        return None
 
-    # Add "TotalOwed" column
-    ws.append(["", "", "", "", "TotalOwed", "=E" + str(rowIndex + 3) + " - F" + str(rowIndex + 3)])
+def handler (event, context):
+    try: 
+        is_dev_env = os.environ.get('IS_DEV', False)
+        if (is_dev_env):
+            print("Environment is dev")
+            # Access AWS credentials from environment variables
+            aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
+            aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+            aws_region = os.environ.get('AWS_DEFAULT_REGION')
 
-    # Save the Excel workbook
-    wb.save(output_filepath)
+            s3 = boto3.client(
+                's3',
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name='ca-central-1'
+            )
+        else:
+            print("Environment is not dev")
+            s3 = boto3.client(
+            's3',
+            )
 
-    print(f"Completed {input_filename}. Transformed and saved to {output_filepath}")
+        s3 = boto3.client('s3')
+        # Define your input and output bucket names
+        input_bucket_name = 'mint-transactions'
+        output_bucket_name = 'mint-transformed'
+        # List all objects in the input S3 bucket
+        prefix = 'transactions/'
 
-    return output_filepath
-    # Upload the local file to your S3 bucket
+        response = s3.list_objects_v2(Bucket=input_bucket_name, Prefix=prefix)
+        # print(f"Contents: {response.get('Contents', [])}" )
 
+        print(f"Going through object item in bucket: {input_bucket_name}")
 
+        for obj in response.get('Contents', []):
+            object_key = obj['Key']
+            file_name = os.path.basename(object_key)
+            
+            if not file_name.lower().endswith('.csv'):
+                print(f"Skipping this object in bucket: {file_name}")
+                continue
 
+            # Download CSV file from input bucket
+            # Extract the file name using os.path.basename
+            if file_name.lower().endswith('.csv'):
+                response = s3.get_object(Bucket=input_bucket_name, Key=object_key)
+                print(f"Processing file: {file_name}") 
 
-# Access AWS credentials from environment variables
-aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
-aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-aws_region = os.environ.get('AWS_DEFAULT_REGION')
+                csv_content = response['Body'].read().decode('utf-8')
+                transformed_data = perform_transformations(file_name, csv_content)
+                
+                newFileName = file_name.replace("_transactions.csv", "_transformed.xlsx")
+                s3.upload_file(transformed_data, input_bucket_name, f'transformed/{newFileName}')
+                print(f"Saved to S3")
 
-s3 = boto3.client(
-    's3',
-    aws_access_key_id=aws_access_key_id,
-    aws_secret_access_key=aws_secret_access_key,
-    region_name='ca-central-1'
-)
-
-s3 = boto3.client('s3')
-# Define your input and output bucket names
-input_bucket_name = 'mint-transactions'
-output_bucket_name = 'mint-transformed'
-# List all objects in the input S3 bucket
-prefix = 'transactions/'
-
-response = s3.list_objects_v2(Bucket=input_bucket_name, Prefix=prefix)
-for obj in response.get('Contents', []):
-    object_key = obj['Key']
-    # Download CSV file from input bucket
-    # Extract the file name using os.path.basename
-    file_name = os.path.basename(object_key)
-    if file_name.lower().endswith('.csv'):
-        response = s3.get_object(Bucket=input_bucket_name, Key=object_key)
-        print(f"Processing file: {file_name}") 
-
-        csv_content = response['Body'].read().decode('utf-8')
-        transformed_data = perform_transformations(file_name, csv_content)
-
+        response = {
+            "statusCode": 200,
+            "body": json.dumps({"message": "Done processing all objects successfully!"})
+        }
         
-        newFileName = file_name.replace(".csv", "_transformed.xlsx")
-        s3.upload_file(transformed_data, input_bucket_name, f'transformed/{newFileName}')
-        print(f"Saved to S3")
+        return response
+        # Rest of your code...
+    except Exception as e:
+        print(f"An error occurred during AWS setup: {str(e)}")

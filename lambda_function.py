@@ -148,7 +148,23 @@ def handler (event, context):
             "statusCode": 200,
             "body": json.dumps({"message": "Done processing all objects successfully!"})
         }
-        
+
+        try:
+            print("**********************************************************************")
+            print("Attempting to email subscribers...")
+            sns_client = boto3.client('sns')
+            topic_arn = os.environ.get('SNS_TOPIC')
+
+            # Publish to SNS
+            sns_client.publish(
+                TopicArn=topic_arn,
+                Message="Done processing all objects successfully!\n Download the transactions on S3 and apply any changes you'd like manually.",
+                Subject='mint_to_expenses Execution Notification',
+            )
+            print("Subscribers emailed successfully!")
+        except Exception as error:
+            print(f"Unable to publish to SNS topic: {error}")
+
         return response
         # Rest of your code...
     except Exception as e:

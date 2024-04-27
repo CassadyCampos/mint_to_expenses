@@ -9,6 +9,50 @@ from openpyxl.styles import NamedStyle
 from openpyxl.utils import get_column_letter
 from io import StringIO
 
+def perform_tangerine_transformation(input_filename, filecontents):
+    input_dir = "transactions"
+    output_dir = "transformed"
+    try:
+        input_filepath = os.path.join(input_dir, input_filename)
+        output_filepath = '/tmp/' + input_filename.replace(".csv", "_transformed.xlsx")
+
+        wb = Workbook()
+        ws = wb.active
+
+        headers = ["", "Item", "Date", "Amount (CAD)", "Split", "Category"]
+        ws.append(headers)
+
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+
+        rowIndex = 2
+        for index, row in df.iterrows():
+            item = row["Name"]
+            date = pd.to_datetime(row["Transaction Date"]).date()
+            amount_cad = float(row["Amount"])
+            decided_split = f"=D{rowIndex}/2"
+            rowIndex = rowIndex + 1
+            ws.append(["", item, date, amount_cad, decided_split, category])
+
+        for column_cells in ws.column:
+            max_length = max(len(str(cell.value)) for cell in column_cells)
+            adjusted_width = min((max_length + 2) * 1.2, 35)
+            column_letter = get_column_letter(column_cells[0].column)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        for _ in range(3):
+            ws.append([])
+
+        ws.append(["Total", None, None, "=SUM(D2:D" + str(rowIndex) + ")", "=SUM(E2:E" + str(rowIndex) + ")"])
+        ws.append([])
+        wb.save(output_filepath)
+
+        print(f"Completed processing {input_filename}. Saved {output_filepath} to storage")
+        return output_filepath
+    except Exception as e:
+        print(f"An error occured during transformation: {str(e)}")
+        return None
+
 
 def perform_transformations(input_filename, fileContents):
     # Input and output directories
@@ -134,15 +178,19 @@ def handler (event, context):
             # Download CSV file from input bucket
             # Extract the file name using os.path.basename
             if file_name.lower().endswith('.csv'):
-                response = s3.get_object(Bucket=input_bucket_name, Key=object_key)
-                print(f"Processing file: {file_name}") 
+               response = s3.get_object(Bucket=input_bucket_name, Key=object_key)
+               print(f"Processing file: {file_name}") 
+               csv_content = response['Body'].read().decode('utf-8')
 
-                csv_content = response['Body'].read().decode('utf-8')
-                transformed_data = perform_transformations(file_name, csv_content)
+               if 'tangerine' in file_name.lower():
+                    print(f"Processing tangerine file: {file_name}")
+                    transformed_data = perform_tangerine_transformation(file_name, csv_content)
+            else:
+                    transformed_data = perform_transformations(file_name, csv_content)
                 
-                newFileName = file_name.replace("_transactions.csv", "_transformed.xlsx")
-                s3.upload_file(transformed_data, input_bucket_name, f'transformed/{newFileName}')
-                print(f"Saved to S3")
+            newFileName = file_name.replace("_transactions.csv", "_transformed.xlsx")
+            s3.upload_file(transformed_data, input_bucket_name, f'transformed/{newFileName}')
+            print(f"Saved to S3")
 
         response = {
             "statusCode": 200,

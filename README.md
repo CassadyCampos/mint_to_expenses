@@ -2,9 +2,19 @@
 
 This app was migrated to AWS so I can run it on a monthly schedule instead of manually. 
 
+### How to update
+Ensure AWS CLI and Docker are installed on machine
+
+* This project runs as a Lambda Function using a docker image from ECR
+
+Make sure aws confiure is done, probably you're using a IAM user with an access key, secrets file might be saved by you somewhere secretly lol
+
+In AWS Console open up the ECR repo and use the push commands to upload to the ECR instance
 
 
+When it's done uploading, update the Lambda function to reference the latest version
 
+Test the lambda function that it's working properly.
 
 
 

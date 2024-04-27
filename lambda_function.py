@@ -9,13 +9,15 @@ from openpyxl.styles import NamedStyle
 from openpyxl.utils import get_column_letter
 from io import StringIO
 
-def perform_tangerine_transformation(input_filename, filecontents):
+def perform_tangerine_transformation(input_filename, fileContents):
     input_dir = "transactions"
     output_dir = "transformed"
     try:
         input_filepath = os.path.join(input_dir, input_filename)
         output_filepath = '/tmp/' + input_filename.replace(".csv", "_transformed.xlsx")
 
+        stringIO = StringIO(fileContents)
+        df = pd.read_csv(stringIO)
         wb = Workbook()
         ws = wb.active
 
@@ -28,13 +30,14 @@ def perform_tangerine_transformation(input_filename, filecontents):
         rowIndex = 2
         for index, row in df.iterrows():
             item = row["Name"]
-            date = pd.to_datetime(row["Transaction Date"]).date()
+            date = pd.to_datetime(row["Transaction date"]).date()
             amount_cad = float(row["Amount"])
             decided_split = f"=D{rowIndex}/2"
+            category = "n/a"
             rowIndex = rowIndex + 1
             ws.append(["", item, date, amount_cad, decided_split, category])
 
-        for column_cells in ws.column:
+        for column_cells in ws.columns:
             max_length = max(len(str(cell.value)) for cell in column_cells)
             adjusted_width = min((max_length + 2) * 1.2, 35)
             column_letter = get_column_letter(column_cells[0].column)
@@ -134,6 +137,7 @@ def perform_transformations(input_filename, fileContents):
         return None
 
 def handler (event, context):
+    print("Cassady new test")
     try: 
         is_dev_env = os.environ.get('IS_DEV', False)
         if (is_dev_env):

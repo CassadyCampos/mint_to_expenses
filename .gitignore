@@ -4,3 +4,4 @@ transformed/*
 docker-compose.yml
 
 secrets.txt
+.env
